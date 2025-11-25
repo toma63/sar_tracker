@@ -71,9 +71,18 @@ def prompting_loop():
                 ).ask()
             elif location_status =='assigned' or location_status == 'complete':
                 transit = questionary.text('transport:', default='self').ask()
-            status_code = questionary.select('status_code:', choices=['None', '4 - ok', '6 - no ok']).ask()
+            status_code = questionary.select('status_code:', choices=['None', '4 - ok', '6 - not ok']).ask()
             status_by_team[team].append(StatusEntry(team, location, location_status, transit, status_code))
             location_by_team[team] = location
+        elif cmd == 'transmission':
+            dest = questionary.text('Destination:', default='high bird').ask()
+            src = questionary.text('Source:', default='comms').ask()
+            message = questionary.text('Message:').ask()
+            transmission = TransmissionEntry(dest, src, message)
+            transmissions.append(transmission)
+        else:
+            raise Exception(f"Unknown command: {cmd}")
+           
 
 # handle command line arguments
 def main():
@@ -91,12 +100,18 @@ def main():
         prompting_loop()
 
     # save the result as json
+
+    # fix for serialization
     status_by_team_dicts = {}
     for k, v in status_by_team.items():
         status_by_team_dicts[k] = list(map(lambda status: status.__dict__, v))
+
+    transmissions_dicts = list(map(lambda transmission: transmission.__dict__, transmissions))
+
+    # combine to a single dict for json
     all_logs = {'status_by_team': status_by_team_dicts, 
                 'location_by_team': location_by_team,
-                'transmissions': transmissions}
+                'transmissions': transmissions_dicts}
 
     print(f'writing logs to json file {args.json_file}')
     with open(args.json_file, 'w') as f:
