@@ -102,9 +102,7 @@ def main():
     # save the result as json
 
     # fix for serialization
-    status_by_team_dicts = {}
-    for k, v in status_by_team.items():
-        status_by_team_dicts[k] = [status.__dict__ for status in v]
+    status_by_team_dicts = {k: [status.__dict__ for status in v] for k, v in status_by_team.items()}
 
     transmissions_dicts = [transmission.__dict__ for transmission in transmissions]
 
