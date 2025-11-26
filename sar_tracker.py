@@ -104,9 +104,9 @@ def main():
     # fix for serialization
     status_by_team_dicts = {}
     for k, v in status_by_team.items():
-        status_by_team_dicts[k] = list(map(lambda status: status.__dict__, v))
+        status_by_team_dicts[k] = [status.__dict__ for status in v]
 
-    transmissions_dicts = list(map(lambda transmission: transmission.__dict__, transmissions))
+    transmissions_dicts = [transmission.__dict__ for transmission in transmissions]
 
     # combine to a single dict for json
     all_logs = {'status_by_team': status_by_team_dicts, 
