@@ -5,6 +5,7 @@ import argparse
 import questionary
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 # status entry
 #   status code - 0-9 (get values and use in prompt) - default 4
@@ -87,6 +88,46 @@ def prompting_loop(tactical_calls):
             raise Exception(f"Unknown command: {cmd}")
            
 
+# helper: load existing logs (if present) into runtime objects
+def load_logs(fp):
+    p = Path(fp)
+    if not p.exists():
+        return {}, {}, []
+    with p.open('r') as f:
+        data = json.load(f)
+
+    loaded_status = {}
+    for team, entries in data.get('status_by_team', {}).items():
+        loaded_status.setdefault(team, [])
+        for e in entries:
+            s = StatusEntry(e.get('team', team), e.get('location'), e.get('location_status', 'assigned'), e.get('transit'), e.get('status_code', 4))
+            if 'timestamp' in e:
+                s.timestamp = e['timestamp']
+            loaded_status[team].append(s)
+
+    loaded_location = data.get('location_by_team', {}) or {}
+
+    loaded_transmissions = []
+    for t in data.get('transmissions', []):
+        tr = TransmissionEntry(t.get('msg'), t.get('dest', 'high bird'), t.get('src', 'comms'))
+        if 'timestamp' in t:
+            tr.timestamp = t['timestamp']
+        loaded_transmissions.append(tr)
+
+    return loaded_status, loaded_location, loaded_transmissions
+
+
+def save_logs(fp):
+    status_by_team_dicts = {k: [status.__dict__ for status in v] for k, v in status_by_team.items()}
+    transmissions_dicts = [transmission.__dict__ for transmission in transmissions]
+    all_logs = {'status_by_team': status_by_team_dicts,
+                'location_by_team': location_by_team,
+                'transmissions': transmissions_dicts}
+    p = Path(fp)
+    with p.open('w') as f:
+        json.dump(all_logs, f, indent=4)
+
+
 # handle command line arguments
 def main():
     parser = argparse.ArgumentParser(
@@ -101,24 +142,19 @@ def main():
 
     args = parser.parse_args()
 
+    # load existing logs (if any)
+    loaded_status, loaded_location, loaded_transmissions = load_logs(args.json_file)
+    global status_by_team, location_by_team, transmissions
+    status_by_team = loaded_status
+    location_by_team = loaded_location
+    transmissions = loaded_transmissions
+
     if args.prompt:
         prompting_loop(args.tactical_calls)
 
     # save the result as json
-
-    # fix for serialization
-    status_by_team_dicts = {k: [status.__dict__ for status in v] for k, v in status_by_team.items()}
-
-    transmissions_dicts = [transmission.__dict__ for transmission in transmissions]
-
-    # combine to a single dict for json
-    all_logs = {'status_by_team': status_by_team_dicts, 
-                'location_by_team': location_by_team,
-                'transmissions': transmissions_dicts}
-
     print(f'writing logs to json file {args.json_file}')
-    with open(args.json_file, 'w') as f:
-        json.dump(all_logs, f, indent=4)
+    save_logs(args.json_file)
 
     exit(0)
 
