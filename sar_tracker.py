@@ -96,7 +96,7 @@ def main():
     # Optional flag: prompt
     parser.add_argument("-p", "--prompt", action="store_true", help="Prompt for status and transmissions")
     parser.add_argument("-j", "--json_file", default='./logs.json', help="json file location, defaults to ./logs.json")
-    parser.add_argument("-t", "--tactical-calls", nargs='+', default=['comms', 'high bird'],
+    parser.add_argument("-t", "--tactical-calls", nargs='+', metavar='TACTICAL_CALL', default=['comms', 'high bird'],
                         help="List of tactical calls for transmissions (default: ['comms','high bird'])")
 
     args = parser.parse_args()
