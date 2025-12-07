@@ -32,7 +32,7 @@ class StatusEntry():
 class TransmissionEntry():
     "A single transmission entry"
 
-    def __init__(self, msg, dest='high_bird', src='comms'):
+    def __init__(self, msg, dest='high bird', src='comms'):
         self.timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         self.msg = msg
         self.dest = dest
@@ -43,7 +43,7 @@ status_by_team = {} # list of status entries for each time
 location_by_team = {} # last known location
 transmissions = [] # list of transmissions in chronological order
 
-def prompting_loop():
+def prompting_loop(tactical_calls):
     "Loop until q[uit] is entered, adding entries based on typed inputs"
 
     done = False
@@ -63,7 +63,7 @@ def prompting_loop():
 
             location = questionary.text('location: (grid or rtb)', default=location_by_team[team]).ask()
             location_status = questionary.select('location_status:', choices=['assigned', 'arrived', 'percentage', 'complete']).ask()
-            transport = None
+            transit = None
             if location_status == 'percentage':
                 percentage_value = questionary.text(
                     "Enter percentage (0-100):",
@@ -75,10 +75,13 @@ def prompting_loop():
             status_by_team[team].append(StatusEntry(team, location, location_status, transit, status_code))
             location_by_team[team] = location
         elif cmd == 'transmission':
-            dest = questionary.text('Destination:', default='high bird').ask()
-            src = questionary.text('Source:', default='comms').ask()
+            # choose defaults from tactical_calls
+            dest_default = tactical_calls[1] if len(tactical_calls) > 1 else tactical_calls[0]
+            src_default = tactical_calls[0]
+            dest = questionary.select('Destination:', choices=tactical_calls, default=dest_default).ask()
+            src = questionary.select('Source:', choices=tactical_calls, default=src_default).ask()
             message = questionary.text('Message:').ask()
-            transmission = TransmissionEntry(dest, src, message)
+            transmission = TransmissionEntry(message, dest, src)
             transmissions.append(transmission)
         else:
             raise Exception(f"Unknown command: {cmd}")
@@ -93,11 +96,13 @@ def main():
     # Optional flag: prompt
     parser.add_argument("-p", "--prompt", action="store_true", help="Prompt for status and transmissions")
     parser.add_argument("-j", "--json_file", default='./logs.json', help="json file location, defaults to ./logs.json")
+    parser.add_argument("-t", "--tactical-calls", nargs='+', default=['comms', 'high bird'],
+                        help="List of tactical calls for transmissions (default: ['comms','high bird'])")
 
     args = parser.parse_args()
 
     if args.prompt:
-        prompting_loop()
+        prompting_loop(args.tactical_calls)
 
     # save the result as json
 
