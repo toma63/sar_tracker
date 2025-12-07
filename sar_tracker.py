@@ -90,6 +90,7 @@ def prompting_loop(tactical_calls):
 
 # helper: load existing logs (if present) into runtime objects
 def load_logs(fp):
+    "load logs from json file if present"
     p = Path(fp)
     if not p.exists():
         return {}, {}, []
@@ -118,6 +119,7 @@ def load_logs(fp):
 
 
 def save_logs(fp):
+    "save logs to json file"
     status_by_team_dicts = {k: [status.__dict__ for status in v] for k, v in status_by_team.items()}
     transmissions_dicts = [transmission.__dict__ for transmission in transmissions]
     all_logs = {'status_by_team': status_by_team_dicts,
