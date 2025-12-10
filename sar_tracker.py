@@ -14,7 +14,7 @@ from pathlib import Path
 #   transit - None, self, transport string
 #   timestamp in zulu - generated on creation
 class StatusEntry():
-    "A single status entry for an SAR team"
+    "A single status entry for a SAR team"
 
     def __init__(self, team, location, location_status='assigned', transit=None, status_code=4):
         self.timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -45,7 +45,7 @@ location_by_team = {} # last known location
 transmissions = [] # list of transmissions in chronological order
 
 def prompting_loop(tactical_calls):
-    "Loop until q[uit] is entered, adding entries based on typed inputs"
+    "Loop until quit. is entered, adding entries based on typed inputs"
 
     done = False
 
