@@ -43,50 +43,54 @@ status_by_team = {} # list of status entries for each time
 location_by_team = {} # last known location
 transmissions = [] # list of transmissions in chronological order
 
-def prompting_loop(tactical_calls, db_path):
-    "Loop until quit. is entered, adding entries based on typed inputs"
+def prompting_loop(tactical_calls, writer, asker=None):
+    """Loop until quit. is entered, adding entries based on typed inputs.
+
+    `writer` should implement `add_status_entry(dict)` and `add_transmission(dict)` and
+    have a `close()` method (returned by `storage.open_db_writer`).
+    """
 
     done = False
 
     while not done:
 
-        cmd = questionary.select("command:", choices=["status", "transmission", "quit"]).ask()
+        cmd = (asker.select if asker else questionary.select)("command:", choices=["status", "transmission", "quit"]).ask()
 
         if cmd == 'quit':
             break
         elif cmd == 'status':
-            team = questionary.text('team:').ask()
+            team = (asker.text if asker else questionary.text)('team:').ask()
 
             # initialize data structures if necessary
             status_by_team.setdefault(team, [])
             location_by_team.setdefault(team, 'unassigned')
 
-            location = questionary.text('location: (grid or rtb)', default=location_by_team[team]).ask()
-            location_status = questionary.select('location_status:', choices=['assigned', 'arrived', 'percentage', 'complete']).ask()
+            location = (asker.text if asker else questionary.text)('location: (grid or rtb)', default=location_by_team[team]).ask()
+            location_status = (asker.select if asker else questionary.select)('location_status:', choices=['assigned', 'arrived', 'percentage', 'complete']).ask()
             transit = None
             if location_status == 'percentage':
-                percentage_value = questionary.text(
+                percentage_value = (asker.text if asker else questionary.text)(
                     "Enter percentage (0-100):",
                     validate=lambda text: text.isdigit() and 0 <= int(text) <= 100
                 ).ask()
             elif location_status =='assigned' or location_status == 'complete':
-                transit = questionary.text('transport:', default='self').ask()
-            status_code = questionary.select('status_code:', choices=['None', '4 - ok', '6 - not ok']).ask()
+                transit = (asker.text if asker else questionary.text)('transport:', default='self').ask()
+            status_code = (asker.select if asker else questionary.select)('status_code:', choices=['None', '4 - ok', '6 - not ok']).ask()
             status_by_team[team].append(StatusEntry(team, location, location_status, transit, status_code))
-            # persist incrementally
-            storage.add_status_entry(db_path, status_by_team[team][-1].__dict__)
+            # persist incrementally (using persistent writer)
+            writer.add_status_entry(status_by_team[team][-1].__dict__)
             location_by_team[team] = location
         elif cmd == 'transmission':
             # choose defaults from tactical_calls
             dest_default = tactical_calls[1] if len(tactical_calls) > 1 else tactical_calls[0]
             src_default = tactical_calls[0]
-            dest = questionary.select('Destination:', choices=tactical_calls, default=dest_default).ask()
-            src = questionary.select('Source:', choices=tactical_calls, default=src_default).ask()
-            message = questionary.text('Message:').ask()
+            dest = (asker.select if asker else questionary.select)('Destination:', choices=tactical_calls, default=dest_default).ask()
+            src = (asker.select if asker else questionary.select)('Source:', choices=tactical_calls, default=src_default).ask()
+            message = (asker.text if asker else questionary.text)('Message:').ask()
             transmission = TransmissionEntry(message, dest, src)
             transmissions.append(transmission)
-            # persist incrementally
-            storage.add_transmission(db_path, transmissions[-1].__dict__)
+            # persist incrementally (using persistent writer)
+            writer.add_transmission(transmissions[-1].__dict__)
         else:
             raise Exception(f"Unknown command: {cmd}")
            
@@ -157,7 +161,11 @@ def main():
     transmissions = loaded_transmissions
 
     if args.prompt:
-        prompting_loop(args.tactical_calls, args.sqlite_file)
+        writer = storage.open_db_writer(args.sqlite_file)
+        try:
+            prompting_loop(args.tactical_calls, writer)
+        finally:
+            writer.close()
 
     # continuous updates are persisted during the prompt loop; no final overwrite.
     exit(0)

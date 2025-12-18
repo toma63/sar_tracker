@@ -158,6 +158,78 @@ def add_transmission(db_path, transmission):
     conn.close()
 
 
+class DBWriter:
+    """Persistent DB writer that keeps a sqlite connection open and commits per operation.
+
+    Use `open_db_writer(path)` to create one. Call `.close()` when finished.
+    """
+
+    def __init__(self, db_path):
+        init_db(db_path)
+        # keep a dedicated connection open for repeated writes
+        self.db_path = db_path
+        self.conn = sqlite3.connect(str(db_path))
+        self.cur = self.conn.cursor()
+
+    def add_status_entry(self, status_entry):
+        name = status_entry.get('team')
+
+        self.cur.execute("SELECT status_history FROM team_status WHERE name=?", (name,))
+        row = self.cur.fetchone()
+        if row:
+            try:
+                history = json.loads(row[0]) if row[0] else []
+            except Exception:
+                history = []
+            history.append(status_entry)
+            history_json = json.dumps(history)
+            current_json = json.dumps(status_entry)
+            current_loc = status_entry.get('location')
+            self.cur.execute(
+                """
+                UPDATE team_status SET
+                    status_history=?, current_status=?, current_location=?, updated=?
+                WHERE name=?
+                """,
+                (history_json, current_json, current_loc, datetime.now(timezone.utc).isoformat(), name)
+            )
+        else:
+            history_json = json.dumps([status_entry])
+            current_json = json.dumps(status_entry)
+            current_loc = status_entry.get('location')
+            self.cur.execute(
+                """
+                INSERT INTO team_status(name, status_history, current_status, current_location, updated)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (name, history_json, current_json, current_loc, datetime.now(timezone.utc).isoformat())
+            )
+
+        self.conn.commit()
+
+    def add_transmission(self, transmission):
+        self.cur.execute(
+            "INSERT INTO transmissions(timestamp, dest, src, msg) VALUES (?, ?, ?, ?)",
+            (transmission.get('timestamp'), transmission.get('dest'), transmission.get('src'), transmission.get('msg'))
+        )
+        self.conn.commit()
+
+    def close(self):
+        try:
+            self.conn.commit()
+        except Exception:
+            pass
+        try:
+            self.conn.close()
+        except Exception:
+            pass
+
+
+def open_db_writer(db_path):
+    """Convenience factory for DBWriter."""
+    return DBWriter(db_path)
+
+
 def load_db(db_path):
     """Load logs from sqlite DB and return a JSON-like dict compatible with the current format.
     Returns None if DB doesn't exist.
