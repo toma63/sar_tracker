@@ -3,9 +3,8 @@
 # interactice logging for search and rescue communications 
 import argparse
 import questionary
-import json
+import storage
 from datetime import datetime, timezone
-from pathlib import Path
 
 # status entry
 #   status code - 0-9 (get values and use in prompt) - default 4
@@ -44,7 +43,7 @@ status_by_team = {} # list of status entries for each time
 location_by_team = {} # last known location
 transmissions = [] # list of transmissions in chronological order
 
-def prompting_loop(tactical_calls):
+def prompting_loop(tactical_calls, db_path):
     "Loop until quit. is entered, adding entries based on typed inputs"
 
     done = False
@@ -74,6 +73,8 @@ def prompting_loop(tactical_calls):
                 transit = questionary.text('transport:', default='self').ask()
             status_code = questionary.select('status_code:', choices=['None', '4 - ok', '6 - not ok']).ask()
             status_by_team[team].append(StatusEntry(team, location, location_status, transit, status_code))
+            # persist incrementally
+            storage.add_status_entry(db_path, status_by_team[team][-1].__dict__)
             location_by_team[team] = location
         elif cmd == 'transmission':
             # choose defaults from tactical_calls
@@ -84,18 +85,20 @@ def prompting_loop(tactical_calls):
             message = questionary.text('Message:').ask()
             transmission = TransmissionEntry(message, dest, src)
             transmissions.append(transmission)
+            # persist incrementally
+            storage.add_transmission(db_path, transmissions[-1].__dict__)
         else:
             raise Exception(f"Unknown command: {cmd}")
            
 
 # helper: load existing logs (if present) into runtime objects
-def load_logs(fp):
-    "load logs from json file if present"
-    p = Path(fp)
-    if not p.exists():
+def _convert_data_to_objects(data):
+    """Convert a loaded JSON-like dict to runtime objects.
+
+    Returns: (loaded_status, loaded_location, loaded_transmissions)
+    """
+    if not data:
         return {}, {}, []
-    with p.open('r') as f:
-        data = json.load(f)
 
     loaded_status = {}
     for team, entries in data.get('status_by_team', {}).items():
@@ -118,17 +121,6 @@ def load_logs(fp):
     return loaded_status, loaded_location, loaded_transmissions
 
 
-def save_logs(fp):
-    "save logs to json file"
-    status_by_team_dicts = {k: [status.__dict__ for status in v] for k, v in status_by_team.items()}
-    transmissions_dicts = [transmission.__dict__ for transmission in transmissions]
-    all_logs = {'status_by_team': status_by_team_dicts,
-                'location_by_team': location_by_team,
-                'transmissions': transmissions_dicts}
-    p = Path(fp)
-    with p.open('w') as f:
-        json.dump(all_logs, f, indent=4)
-
 
 # handle command line arguments
 def main():
@@ -138,26 +130,36 @@ def main():
 
     # Optional flag: prompt
     parser.add_argument("-p", "--prompt", action="store_true", help="Prompt for status and transmissions")
-    parser.add_argument("-j", "--json_file", default='./logs.json', help="json file location, defaults to ./logs.json")
     parser.add_argument("-t", "--tactical-calls", nargs='+', metavar='TACTICAL_CALL', default=['comms', 'high bird'],
                         help="List of tactical calls for transmissions (default: ['comms','high bird'])")
+    parser.add_argument("--sqlite-file", default='./logs.db', help="sqlite file location, defaults to ./logs.db")
+    parser.add_argument("--import-json", metavar='JSON_FILE', help="Import a JSON file into sqlite and exit")
+    parser.add_argument("--dump-json", metavar='JSON_FILE', help="Dump sqlite contents to JSON file and exit")
 
     args = parser.parse_args()
 
-    # load existing logs (if any)
-    loaded_status, loaded_location, loaded_transmissions = load_logs(args.json_file)
+    # handle import/dump operations first
+    if args.import_json:
+        ok = storage.import_json_to_db(args.import_json, args.sqlite_file)
+        print(f"imported json to sqlite: {ok}")
+        exit(0 if ok else 2)
+    if args.dump_json:
+        ok = storage.dump_db_to_json(args.sqlite_file, args.dump_json)
+        print(f"dumped sqlite to json: {ok}")
+        exit(0 if ok else 2)
+
+    # load existing logs from sqlite (default)
+    data = storage.load_db(args.sqlite_file)
+    loaded_status, loaded_location, loaded_transmissions = _convert_data_to_objects(data)
     global status_by_team, location_by_team, transmissions
     status_by_team = loaded_status
     location_by_team = loaded_location
     transmissions = loaded_transmissions
 
     if args.prompt:
-        prompting_loop(args.tactical_calls)
+        prompting_loop(args.tactical_calls, args.sqlite_file)
 
-    # save the result as json
-    print(f'writing logs to json file {args.json_file}')
-    save_logs(args.json_file)
-
+    # continuous updates are persisted during the prompt loop; no final overwrite.
     exit(0)
 
 if __name__ == "__main__":
