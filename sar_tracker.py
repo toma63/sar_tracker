@@ -43,7 +43,7 @@ status_by_team = {} # list of status entries for each time
 location_by_team = {} # last known location
 transmissions = [] # list of transmissions in chronological order
 
-def prompting_loop(tactical_calls):
+def prompting_loop(tactical_calls, db_path):
     "Loop until quit. is entered, adding entries based on typed inputs"
 
     done = False
@@ -73,6 +73,8 @@ def prompting_loop(tactical_calls):
                 transit = questionary.text('transport:', default='self').ask()
             status_code = questionary.select('status_code:', choices=['None', '4 - ok', '6 - not ok']).ask()
             status_by_team[team].append(StatusEntry(team, location, location_status, transit, status_code))
+            # persist incrementally
+            storage.add_status_entry(db_path, status_by_team[team][-1].__dict__)
             location_by_team[team] = location
         elif cmd == 'transmission':
             # choose defaults from tactical_calls
@@ -83,6 +85,8 @@ def prompting_loop(tactical_calls):
             message = questionary.text('Message:').ask()
             transmission = TransmissionEntry(message, dest, src)
             transmissions.append(transmission)
+            # persist incrementally
+            storage.add_transmission(db_path, transmissions[-1].__dict__)
         else:
             raise Exception(f"Unknown command: {cmd}")
            
@@ -153,17 +157,9 @@ def main():
     transmissions = loaded_transmissions
 
     if args.prompt:
-        prompting_loop(args.tactical_calls)
+        prompting_loop(args.tactical_calls, args.sqlite_file)
 
-    # save the result into sqlite (default behavior)
-    status_by_team_dicts = {k: [status.__dict__ for status in v] for k, v in status_by_team.items()}
-    transmissions_dicts = [transmission.__dict__ for transmission in transmissions]
-    all_logs = {'status_by_team': status_by_team_dicts,
-                'location_by_team': location_by_team,
-                'transmissions': transmissions_dicts}
-    print(f'writing logs to sqlite file {args.sqlite_file}')
-    storage.save_db(args.sqlite_file, all_logs)
-
+    # continuous updates are persisted during the prompt loop; no final overwrite.
     exit(0)
 
 if __name__ == "__main__":

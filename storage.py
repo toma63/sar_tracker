@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -73,7 +73,7 @@ def save_db(db_path, all_logs_dict):
               current_location=excluded.current_location,
               updated=excluded.updated
             """,
-            (name, history_json, current_json, current_loc, datetime.utcnow().isoformat() + 'Z')
+            (name, history_json, current_json, current_loc, datetime.now(timezone.utc).isoformat())
         )
 
     # ensure teams present in location_by_team but not in status_by_team
@@ -89,7 +89,7 @@ def save_db(db_path, all_logs_dict):
                   current_location=excluded.current_location,
                   updated=excluded.updated
                 """,
-                (name, json.dumps([]), None, loc, datetime.utcnow().isoformat() + 'Z')
+                (name, json.dumps([]), None, loc, datetime.now(timezone.utc).isoformat())
             )
 
     # insert transmissions
@@ -99,6 +99,61 @@ def save_db(db_path, all_logs_dict):
             (t.get('timestamp'), t.get('dest'), t.get('src'), t.get('msg'))
         )
 
+    conn.commit()
+    conn.close()
+
+
+def add_status_entry(db_path, status_entry):
+    """Append a single status entry (dict) to the team's history and update current columns."""
+    init_db(db_path)
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    name = status_entry.get('team')
+
+    cur.execute("SELECT status_history FROM team_status WHERE name=?", (name,))
+    row = cur.fetchone()
+    if row:
+        try:
+            history = json.loads(row[0]) if row[0] else []
+        except Exception:
+            history = []
+        history.append(status_entry)
+        history_json = json.dumps(history)
+        current_json = json.dumps(status_entry)
+        current_loc = status_entry.get('location')
+        cur.execute(
+            """
+            UPDATE team_status SET
+                status_history=?, current_status=?, current_location=?, updated=?
+            WHERE name=?
+            """,
+            (history_json, current_json, current_loc, datetime.now(timezone.utc).isoformat(), name)
+        )
+    else:
+        history_json = json.dumps([status_entry])
+        current_json = json.dumps(status_entry)
+        current_loc = status_entry.get('location')
+        cur.execute(
+            """
+            INSERT INTO team_status(name, status_history, current_status, current_location, updated)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (name, history_json, current_json, current_loc, datetime.now(timezone.utc).isoformat())
+        )
+
+    conn.commit()
+    conn.close()
+
+
+def add_transmission(db_path, transmission):
+    """Insert a single transmission row into the transmissions table."""
+    init_db(db_path)
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO transmissions(timestamp, dest, src, msg) VALUES (?, ?, ?, ?)",
+        (transmission.get('timestamp'), transmission.get('dest'), transmission.get('src'), transmission.get('msg'))
+    )
     conn.commit()
     conn.close()
 
