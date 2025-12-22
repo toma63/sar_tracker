@@ -4,6 +4,7 @@
 import argparse
 import questionary
 import storage
+import spreadsheet
 from datetime import datetime, timezone
 
 # status entry
@@ -139,6 +140,7 @@ def main():
     parser.add_argument("--sqlite-file", default='./logs.db', help="sqlite file location, defaults to ./logs.db")
     parser.add_argument("--import-json", metavar='JSON_FILE', help="Import a JSON file into sqlite and exit")
     parser.add_argument("--dump-json", metavar='JSON_FILE', help="Dump sqlite contents to JSON file and exit")
+    parser.add_argument("--export-xlsx", metavar='XLSX_FILE', help="Export sqlite contents to XLSX file and exit")
 
     args = parser.parse_args()
 
@@ -150,6 +152,10 @@ def main():
     if args.dump_json:
         ok = storage.dump_db_to_json(args.sqlite_file, args.dump_json)
         print(f"dumped sqlite to json: {ok}")
+        exit(0 if ok else 2)
+    if args.export_xlsx:
+        ok = spreadsheet.export_to_xlsx(args.sqlite_file, args.export_xlsx)
+        print(f"exported sqlite to xlsx: {ok}")
         exit(0 if ok else 2)
 
     # load existing logs from sqlite (default)
