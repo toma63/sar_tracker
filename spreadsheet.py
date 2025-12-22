@@ -43,6 +43,21 @@ def _parse_timestamp(ts):
         return None
 
 
+def _fmt_status_code(code):
+    """Return a human-friendly label for a status code (e.g. 4 -> '4 - ok')."""
+    if code is None or code == '':
+        return ''
+    try:
+        c = int(code)
+    except Exception:
+        return str(code)
+    if c == 4:
+        return '4 - ok'
+    if c == 6:
+        return '6 - not ok'
+    return str(c)
+
+
 def _apply_alternating_rows(ws, start_row=2, even_color='FFFFFF', odd_color='EAF4FF'):
     # use a subtle blue tint for odd rows for better visibility
     even_fill = PatternFill(start_color=even_color, end_color=even_color, fill_type='solid')
@@ -98,7 +113,7 @@ def export_to_xlsx(db_path, xlsx_fp):
         if current and isinstance(current, dict):
             loc_status = current.get('location_status', '')
             transit = current.get('transit', '')
-            status_code = current.get('status_code', '')
+            status_code = _fmt_status_code(current.get('status_code'))
             updated = current.get('timestamp', '')
         else:
             loc_status = transit = status_code = updated = ''
@@ -136,7 +151,7 @@ def export_to_xlsx(db_path, xlsx_fp):
                 e.get('location'),
                 e.get('location_status'),
                 e.get('transit'),
-                e.get('status_code'),
+                _fmt_status_code(e.get('status_code')),
             ])
     # style header and autofilter
     for cell in ws2[1]:

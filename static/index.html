@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SAR Tracker - Live View</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/favicon.png" type="image/png">
+</head>
+<body>
+  <header>
+    <h1>SAR Tracker — Live View</h1>
+    <div id="controls">
+      <button id="reload">Reload</button>
+      <span id="last-updated"></span>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Current Status</h2>
+      <div class="table-wrap" id="current-status"></div>
+    </section>
+
+    <section>
+      <h2>Status History</h2>
+      <div class="table-wrap" id="status-history"></div>
+    </section>
+
+    <section>
+      <h2>Transmissions</h2>
+      <div class="table-wrap" id="transmissions"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Data provided by server: <code>/state</code></small>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

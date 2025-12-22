@@ -76,7 +76,16 @@ def prompting_loop(tactical_calls, writer, asker=None):
                 ).ask()
             elif location_status =='assigned' or location_status == 'complete':
                 transit = (asker.text if asker else questionary.text)('transport:', default='self').ask()
-            status_code = (asker.select if asker else questionary.select)('status_code:', choices=['None', '4 - ok', '6 - not ok']).ask()
+            status_code_choice = (asker.select if asker else questionary.select)('status_code:', choices=['None', '4 - ok', '6 - not ok']).ask()
+            # normalize stored value to integer codes or None
+            if status_code_choice == 'None':
+                status_code = None
+            else:
+                # extract leading number if present (e.g. '4 - ok')
+                try:
+                    status_code = int(str(status_code_choice).split()[0])
+                except Exception:
+                    status_code = status_code_choice
             status_by_team[team].append(StatusEntry(team, location, location_status, transit, status_code))
             # persist incrementally (using persistent writer)
             writer.add_status_entry(status_by_team[team][-1].__dict__)
