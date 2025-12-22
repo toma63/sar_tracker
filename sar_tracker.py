@@ -55,7 +55,7 @@ def prompting_loop(tactical_calls, writer, asker=None):
 
     while not done:
 
-        cmd = (asker.select if asker else questionary.select)("command:", choices=["status", "transmission", "quit"]).ask()
+        cmd = (asker.select if asker else questionary.select)("command:", choices=["status", "transmission", "export xlsx", "quit"]).ask()
 
         if cmd == 'quit':
             break
@@ -92,6 +92,15 @@ def prompting_loop(tactical_calls, writer, asker=None):
             transmissions.append(transmission)
             # persist incrementally (using persistent writer)
             writer.add_transmission(transmissions[-1].__dict__)
+        elif cmd == 'export xlsx':
+            # ask for filename and export current DB state
+            default_fp = f"status-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}.xlsx"
+            xlsx_fp = (asker.text if asker else questionary.text)('XLSX filename:', default=default_fp).ask()
+            try:
+                ok = spreadsheet.export_to_xlsx(writer.db_path, xlsx_fp)
+                print(f'exported xlsx: {xlsx_fp} -> {ok}')
+            except Exception as e:
+                print(f'failed to export xlsx: {e}')
         else:
             raise Exception(f"Unknown command: {cmd}")
            
