@@ -74,9 +74,9 @@ def prompting_loop(tactical_calls, writer, asker=None):
                     "Enter percentage (0-100):",
                     validate=lambda text: text.isdigit() and 0 <= int(text) <= 100
                 ).ask()
-                # include the captured percentage in the stored location_status so
-                # downstream consumers (UI, spreadsheet) can display the value
-                location_status = f"percentage {percentage_value}%"
+                # store just the numeric percentage (e.g. '60%') so the DB and API
+                # return the concise value and downstream consumers can display it
+                location_status = f"{percentage_value}%"
             elif location_status =='assigned' or location_status == 'complete':
                 transit = (asker.text if asker else questionary.text)('transport:', default='self').ask()
             status_code_choice = (asker.select if asker else questionary.select)('status_code:', choices=['None', '4 - ok', '6 - not ok']).ask()

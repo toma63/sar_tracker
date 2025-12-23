@@ -67,14 +67,8 @@ function renderState(data){
 
   function formatLocationStatus(ls){
     if(!ls && ls !== 0) return '';
-    try{
-      if(typeof ls === 'string' && ls.startsWith('percentage ')){
-        // stored as 'percentage 60%'; display only '60%'
-        return ls.split(' ')[1] || ls;
-      }
-    }catch(e){
-      // fallthrough
-    }
+    // we now store concise values like '60%'
+    if(typeof ls === 'string') return ls;
     return String(ls);
   }
 

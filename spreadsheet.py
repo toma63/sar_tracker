@@ -59,15 +59,15 @@ def _fmt_status_code(code):
 
 
 def _fmt_location_status(ls):
-    """Format location_status for display: if it's 'percentage N%' return 'N%'."""
+    """Format location_status for display.
+
+    We store concise values like '60%'. Return the stored string or empty
+    string for None.
+    """
     if ls is None:
         return ''
-    try:
-        if isinstance(ls, str) and ls.startswith('percentage '):
-            parts = ls.split(' ', 1)
-            return parts[1] if len(parts) > 1 else ls
-    except Exception:
-        pass
+    if isinstance(ls, str):
+        return ls
     return ls
 
 
