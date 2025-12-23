@@ -58,6 +58,19 @@ def _fmt_status_code(code):
     return str(c)
 
 
+def _fmt_location_status(ls):
+    """Format location_status for display: if it's 'percentage N%' return 'N%'."""
+    if ls is None:
+        return ''
+    try:
+        if isinstance(ls, str) and ls.startswith('percentage '):
+            parts = ls.split(' ', 1)
+            return parts[1] if len(parts) > 1 else ls
+    except Exception:
+        pass
+    return ls
+
+
 def _apply_alternating_rows(ws, start_row=2, even_color='FFFFFF', odd_color='EAF4FF'):
     # use a subtle blue tint for odd rows for better visibility
     even_fill = PatternFill(start_color=even_color, end_color=even_color, fill_type='solid')
@@ -111,7 +124,7 @@ def export_to_xlsx(db_path, xlsx_fp):
         current = history[-1] if history else None
         current_loc = data.get('location_by_team', {}).get(team, '')
         if current and isinstance(current, dict):
-            loc_status = current.get('location_status', '')
+            loc_status = _fmt_location_status(current.get('location_status', ''))
             transit = current.get('transit', '')
             status_code = _fmt_status_code(current.get('status_code'))
             updated = current.get('timestamp', '')
@@ -149,7 +162,7 @@ def export_to_xlsx(db_path, xlsx_fp):
                 team,
                 e.get('timestamp'),
                 e.get('location'),
-                e.get('location_status'),
+                _fmt_location_status(e.get('location_status')),
                 e.get('transit'),
                 _fmt_status_code(e.get('status_code')),
             ])

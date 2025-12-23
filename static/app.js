@@ -65,11 +65,24 @@ function renderState(data){
     return String(code);
   }
 
+  function formatLocationStatus(ls){
+    if(!ls && ls !== 0) return '';
+    try{
+      if(typeof ls === 'string' && ls.startsWith('percentage ')){
+        // stored as 'percentage 60%'; display only '60%'
+        return ls.split(' ')[1] || ls;
+      }
+    }catch(e){
+      // fallthrough
+    }
+    return String(ls);
+  }
+
   Object.keys(s).sort().forEach(team=>{
     const history = s[team] || [];
     const current = history.length ? history[history.length-1] : null;
     const updated = current ? formatTimestamp(current.timestamp) : '';
-    currentRows.push([team, locs[team] || '', current ? current.location_status : '', current ? current.transit : '', current ? formatStatusCode(current.status_code) : '', updated]);
+    currentRows.push([team, locs[team] || '', current ? formatLocationStatus(current.location_status) : '', current ? current.transit : '', current ? formatStatusCode(current.status_code) : '', updated]);
   });
   makeTable('current-status', currentHeaders, currentRows);
   
@@ -79,7 +92,7 @@ function renderState(data){
   try{
     Object.keys(s).sort().forEach(team=>{
       (s[team]||[]).forEach(e=>{
-        histRows.push([team, formatTimestamp(e.timestamp), e.location, e.location_status, e.transit, formatStatusCode(e.status_code)]);
+        histRows.push([team, formatTimestamp(e.timestamp), e.location, formatLocationStatus(e.location_status), e.transit, formatStatusCode(e.status_code)]);
       })
     });
   }catch(err){
